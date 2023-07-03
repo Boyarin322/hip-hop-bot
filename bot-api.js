@@ -14,7 +14,7 @@ bot.onText(/\/echo (.+)/, (message, match) =>{
 });
 
 let waitingForNickname = false;
-
+let waitingForRequestMMR = false;
 bot.onText(/\/start/, (message) => {
     const chatId = message.chat.id;
     bot.sendMessage(chatId, 'Hi, are you new to Hip-Hop? Tell me your nickname and we will register you to our cult')
@@ -26,6 +26,63 @@ bot.onText(/\/start/, (message) => {
     });
 });
 
+bot.onText(/\/menu/, (message) =>{
+    const chatId = message.chat.id;
+
+    const menu = {
+        disable_notification: true,
+        reply_markup: {
+            inline_keyboard: [
+                [{ text: 'Profile', callback_data: 'profile' }],
+                //todo: Create commands in menu, so user can acces it via buttons, not writting commands
+                [{ text: 'Commands', callback_data: 'commands' }],
+                [{ text: 'Request MMR', callback_data: 'request-mmr' }],
+                [{text: 'Send report', callback_data: 'send-report'}]
+            ]
+        }
+    };
+    bot.sendMessage(chatId, 'Choose an option:', menu);
+})
+bot.on('callback_query', (callbackQuery)=>{
+    const chatId = callbackQuery.message.chat.id;
+    const data = callbackQuery.data;
+
+    switch (data){
+        case 'profile':{
+            //todo: In order to do this, we need to create registration logic and keep user in session memory
+            bot.sendMessage(chatId, 'This function is currently unavailable. We sincerely apologise');
+            break;
+        }
+        case 'commands':{
+            bot.sendMessage(chatId,
+                `\t/start = register new user\n
+            /menu = check our menu\n
+            /add {nickname} {mmr number} = add mmr to chosen user\n
+            /reduce {nickname} {mmr number} = reduce mmr from chosen user\n
+            /leaderboard = check current leaderboard`);
+            break;
+        }
+        case 'request-mmr': {
+            if (!waitingForRequestMMR) {
+                waitingForRequestMMR = true;
+
+                bot.sendMessage(chatId, 'Describe your hip-hop achievement in details');
+
+                bot.once('message', async (message) => {
+                    const response = message.text;
+                    const adminChatId = message.chat.id; // Replace with your admin chat ID
+                    console.log(response, adminChatId);
+                    await bot.sendMessage(adminChatId, response);
+
+                    waitingForRequestMMR = false;
+                });
+            }
+
+            break;
+
+        }
+    }
+})
 bot.onText(/\/reduce (.+) (\d+)/, (message, match) => {
     const chatId = message.chat.id;
     const nickname = match[1];
