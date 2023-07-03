@@ -5,8 +5,9 @@ const dbPath = 'database.db'
 const userOps = require('./userOperations')
 const User = require('./user');
 const db = new sqlite3.Database(dbPath);
-//v 0.2
+//v 0.5
 
+const adminChatId = '714447767';
 bot.onText(/\/echo (.+)/, (message, match) =>{
     const chatId = message.chat.id;
     const response = match[1];
@@ -50,16 +51,29 @@ bot.on('callback_query', (callbackQuery)=>{
     switch (data){
         case 'profile':{
             //todo: In order to do this, we need to create registration logic and keep user in session memory
+
             bot.sendMessage(chatId, 'This function is currently unavailable. We sincerely apologise');
             break;
         }
         case 'commands':{
+            //todo: Should be done in menu style
+
             bot.sendMessage(chatId,
                 `\t/start = register new user\n
             /menu = check our menu\n
             /add {nickname} {mmr number} = add mmr to chosen user\n
             /reduce {nickname} {mmr number} = reduce mmr from chosen user\n
             /leaderboard = check current leaderboard`);
+            break;
+        }
+        case 'send-report':{
+            bot.sendMessage(chatId, 'Please tell us what do you want to report in maximum details');
+            bot.once('message', async (message) =>{
+                const response = message.text;
+                console.log(response);
+                await bot.sendMessage(adminChatId, `Report: ${response}\nUser Chat ID: ${chatId}\nUsername: ${message.from.username}`);
+                await bot.sendMessage(chatId,'Thanks for cooperation. You may get additional MMR for this)')
+            })
             break;
         }
         case 'request-mmr': {
@@ -70,14 +84,29 @@ bot.on('callback_query', (callbackQuery)=>{
 
                 bot.once('message', async (message) => {
                     const response = message.text;
-                    const adminChatId = message.chat.id; // Replace with your admin chat ID
-                    console.log(response, adminChatId);
-                    await bot.sendMessage(adminChatId, response);
 
+                    console.log(response, chatId);
+                    await bot.sendMessage(adminChatId, `MMR Request:${response}\nUser Chat ID: ${chatId}\nUsername: ${message.from.username}`);
+                    await bot.sendMessage(chatId, 'Thanks for submitting. Our admin will review it soon');
+
+
+                    await bot.sendMessage(chatId, 'Do you have any photo proof?');
+                    bot.once('message', async (message) => {
+                        if (message.photo && message.photo.length > 0) {
+                            // Handle the photo
+                            const photo = message.photo[0];
+                            const photoId = photo.file_id;
+
+                            // Send the photo to the admin
+                            await bot.sendPhoto(adminChatId, photoId);
+                            await bot.sendMessage(chatId, 'Photo sent to admin.');
+                        } else {
+                            await bot.sendMessage(chatId, 'No photo provided. You will get lower amount of MMR');
+                        }
+                    });
                     waitingForRequestMMR = false;
                 });
             }
-
             break;
 
         }
