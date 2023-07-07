@@ -51,15 +51,15 @@ const userOperations = {
     getAllUsers: async () => {
         try {
             const users = await User.findAll({
-                attributes: ['nickname', 'mmr', 'level', 'title'],
+                attributes: ['nickname', 'mmr', 'level', 'title', 'chatId'],
             });
 
             return users.map((user) => {
-                const { nickname, mmr } = user;
+                const { nickname, mmr, chatId } = user;
                 const level = Math.floor(mmr/100); // Access the level property directly
                 const title = getTitle(level); // Access the title property directly
-                console.log(`User: ${nickname}, MMR: ${mmr}, Level: ${level}, Title: ${title}`);
-                return { nickname, mmr, level, title };
+                console.log(`User: ${nickname}, MMR: ${mmr}, Level: ${level}, Title: ${title}, ChatId: ${chatId}`);
+                return { nickname, mmr, level, title, chatId };
             });
         } catch (error) {
             console.error('Error retrieving users:', error);
