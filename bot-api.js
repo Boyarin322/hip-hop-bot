@@ -35,7 +35,6 @@ bot.onText(/\/start/, async (message) => {
        await bot.sendMessage(chatId, 'Sorry, you already registered');
     }
 });
-
 bot.onText(/\/menu/, (message) =>{
     const chatId = message.chat.id;
 
@@ -59,9 +58,19 @@ bot.on('callback_query', (callbackQuery)=>{
 
     switch (data){
         case 'profile':{
-            //todo: In order to do this, we need to create registration logic and keep user in session memory
+            prof();
+            async function prof() {
+                const user = await userOps.getUser(chatId);
+                console.log(user);
+                const {nickname, mmr, level, title} = user;
+                const message = `
+                Name: ${nickname} ;
+MMR: ${mmr} ;
+Level: ${level} ;
+Title: ${title} ;`;
+                await bot.sendMessage(chatId, message, {parse_mode: 'Markdown'});
 
-            bot.sendMessage(chatId, 'This function is currently unavailable. We sincerely apologise');
+            }
             break;
         }
         case 'commands': {

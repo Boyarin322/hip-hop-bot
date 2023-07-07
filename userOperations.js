@@ -47,7 +47,20 @@ const userOperations = {
             throw error;
         }
     },
-
+    getUser: async (chatId) => {
+        try {
+            const user = await User.findOne({where: {chatId}});
+            const { nickname, mmr} = user;
+            const level = Math.floor(mmr/100); // Access the level property directly
+            const title = getTitle(level); // Access the title property directly
+            console.log(`User: ${nickname}, MMR: ${mmr}, Level: ${level}, Title: ${title}`);
+            return { nickname, mmr, level, title };
+        }
+        catch (error){
+            console.error('Error getting the user');
+            throw error;
+        }
+    },
     getAllUsers: async () => {
         try {
             const users = await User.findAll({
