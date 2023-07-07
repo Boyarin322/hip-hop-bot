@@ -23,7 +23,7 @@ bot.onText(/\/start/, (message) => {
             waitingForNickname = true;
         }).catch(error => {
         bot.sendMessage(chatId, 'Error, try again');
-        console.log(`Failed to send message to ${message.from.username}`);
+        console.log(`Failed to send message to ${message.from.username}: ${error}`);
     });
 });
 
@@ -103,7 +103,7 @@ Available commands:
                     await bot.sendMessage(chatId, 'Thanks for submitting. Our admin will review it soon');
 
 
-                    await bot.sendMessage(chatId, 'Do you have any photo proof?');
+                    await bot.sendMessage(chatId, 'Do you have any photo proof or video proof? If not, type anything');
                     bot.once('message', async (message) => {
                         if (message.photo && message.photo.length > 0) {
                             // Handle the photo
@@ -111,10 +111,24 @@ Available commands:
                             const photoId = photo.file_id;
 
                             // Send the photo to the admin
-                            await bot.sendPhoto(adminChatId, photoId);
-                            await bot.sendMessage(chatId, 'Photo sent to admin.');
-                        } else {
-                            await bot.sendMessage(chatId, 'No photo provided. You will get lower amount of MMR');
+                            await bot.sendPhoto(adminChatId, photoId)
+                                .then(() => bot.sendMessage(chatId, 'Photo sent to admin.'))
+                                .catch(() => bot.sendMessage(chatId, 'Fail to process the photo'));
+                        } else if (message.video){
+                            //Handle the video
+                            const videoId = message.video.file_id;
+                            console.log(videoId, message);
+                            await bot.sendVideo(adminChatId, videoId)
+                                .then(() => {
+                                    bot.sendMessage(chatId, 'Video sent to admin');
+                                })
+                                .catch(() => {
+                                    bot.sendMessage(chatId, 'Fail to process the video');
+                                });
+
+                        }
+                        else {
+                            await bot.sendMessage(chatId, 'No photo/video provided. You will get lower amount of MMR');
                         }
                     });
                     waitingForRequestMMR = false;
