@@ -5,26 +5,35 @@ const dbPath = 'database.db'
 const userOps = require('./userOperations')
 const User = require('./user');
 const db = new sqlite3.Database(dbPath);
-//v 0.5
+//v 0.8
 
-const adminChatId = '714447767';
+const adminChatId = '714447767'; //should be Bogdan
+
 bot.onText(/\/echo (.+)/, (message, match) =>{
     const chatId = message.chat.id;
     const response = match[1];
     bot.sendMessage(chatId, response);
 });
 
+//todo: Change it, it is complete BS
 let waitingForNickname = false;
 let waitingForRequestMMR = false;
-bot.onText(/\/start/, (message) => {
+bot.onText(/\/start/, async (message) => {
     const chatId = message.chat.id;
-    bot.sendMessage(chatId, 'Hi, are you new to Hip-Hop? Tell me your nickname and we will register you to our cult')
-        .then(() => {
-            waitingForNickname = true;
-        }).catch(error => {
-        bot.sendMessage(chatId, 'Error, try again');
-        console.log(`Failed to send message to ${message.from.username}: ${error}`);
-    });
+    const isUserRegistered = await userOps.IsUserRegistered(chatId);
+
+    if (!isUserRegistered) {
+        bot.sendMessage(chatId, 'Hi, are you new to Hip-Hop? Tell me your nickname and we will register you to our cult')
+            .then(() => {
+                waitingForNickname = true;
+            }).catch(error => {
+            bot.sendMessage(chatId, 'Error, try again');
+            console.log(`Failed to send message to ${message.from.username}: ${error}`);
+        });
+    }
+    else {
+       await bot.sendMessage(chatId, 'Sorry, you already registered');
+    }
 });
 
 bot.onText(/\/menu/, (message) =>{
@@ -224,18 +233,18 @@ bot.onText(/\/leaderboard/, async (message) => {
         }
         // Format the users data into tables for each tier
         const tableRowsLegendary = legendary.map((user, index) => {
-            const { nickname, mmr, level, title } = user;
-            return `${index + 1}. ${nickname} - MMR: ${mmr}, Level: ${level}, Title: ${title}`;
+            const { nickname, mmr, level, title, chatId } = user;
+            return `${index + 1}. ${nickname} - MMR: ${mmr}, Level: ${level}, Title: ${title} ${chatId}`;
         });
 
         const tableRowsUniversity = university.map((user, index) => {
-            const { nickname, mmr, level, title } = user;
-            return `${index + 1}. ${nickname} - MMR: ${mmr}, Level: ${level}, Title: ${title}`;
+            const { nickname, mmr, level, title, chatId} = user;
+            return `${index + 1}. ${nickname} - MMR: ${mmr}, Level: ${level}, Title: ${title} ${chatId}`;
         });
 
         const tableRowsSchool = school.map((user, index) => {
-            const { nickname, mmr, level, title } = user;
-            return `${index + 1}. ${nickname} - MMR: ${mmr}, Level: ${level}, Title: ${title}`;
+            const { nickname, mmr, level, title, chatId } = user;
+            return `${index + 1}. ${nickname} - MMR: ${mmr}, Level: ${level}, Title: ${title} ${chatId}`;
         });
 
         // Join the table rows for each tier
@@ -244,9 +253,9 @@ bot.onText(/\/leaderboard/, async (message) => {
         const tableSchool = tableRowsSchool.join('\n');
 
         // Print the tables for each tier
-        bot.sendMessage(chatId, `Legendary tier:\n${tableLegendary}`)
-            .then(bot.sendMessage(chatId, `University tier:\n${tableUniversity}`)
-                .then(bot.sendMessage(chatId, `School tier:\n${tableSchool}`)));
+        await bot.sendMessage(chatId, `Legendary tier:\n${tableLegendary}`)
+        await bot.sendMessage(chatId, `University tier:\n${tableUniversity}`)
+        await bot.sendMessage(chatId, `School tier:\n${tableSchool}`)
     } catch (error) {
         console.error('Error retrieving users:', error);
         bot.sendMessage(chatId, 'Failed to retrieve leaderboard. Please try again.');
@@ -263,7 +272,7 @@ bot.on('message', (message) => {
         console.log('Nickname:', nickname);
 
         // Perform any actions or logic with the captured nickname here
-        userOps.createUser(nickname)
+        userOps.createUser(nickname, chatId)
             .then(() => {
                 // Reply with a confirmation or further instructions
                 bot.sendMessage(chatId, `Great! Welcome to Hip-Hop Club, ${nickname}!

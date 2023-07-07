@@ -2,6 +2,7 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('./sequelize');
 
+
 const User = sequelize.define('User', {
     id: {
         type: DataTypes.UUID,
@@ -17,6 +18,11 @@ const User = sequelize.define('User', {
             this.setDataValue('level', Math.floor(value / 100));
             this.setDataValue('title', this.getDataValue('title')); // Recalculate the title
         },
+    },
+    chatId:{
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 1,
     },
     nickname: {
         type: DataTypes.STRING,

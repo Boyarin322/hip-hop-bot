@@ -2,15 +2,30 @@
 const User = require('./user');
 
 const userOperations = {
-    createUser: async (nickname) => {
+    createUser: async (nickname, chatId) => {
         try {
-            const user = await User.create({ nickname });
+            const user = await User.create({ nickname, chatId});
             console.log('User created:', user.toJSON());
             return user;
         } catch (error) {
             console.error('Error creating user:', error);
             throw error;
         }
+    },
+    IsUserRegistered: async (chatId)=>{
+        try {
+            const user = await User.findOne({ where: { chatId: chatId } });
+            console.log(user);
+            if (user) {
+                return true;
+            } else {
+                return false;
+            }
+        } catch (error) {
+            console.error(`Error checking user registration: ${error}, ${chatId}`);
+            throw error;
+        }
+
     },
 
     changeMMR: async (nickname, mmr) => {
