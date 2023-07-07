@@ -55,23 +55,32 @@ bot.on('callback_query', (callbackQuery)=>{
             bot.sendMessage(chatId, 'This function is currently unavailable. We sincerely apologise');
             break;
         }
-        case 'commands':{
-            //todo: Should be done in menu style
+        case 'commands': {
+            const message = `
+Available commands:
 
-            bot.sendMessage(chatId,
-                `\t/start = register new user\n
-            /menu = check our menu\n
-            /add {nickname} {mmr number} = add mmr to chosen user\n
-            /reduce {nickname} {mmr number} = reduce mmr from chosen user\n
-            /leaderboard = check current leaderboard`);
+/start - register new user
+/menu - check our menu
+/add {nickname} {mmr number} - add MMR to chosen user
+/reduce {nickname} {mmr number} - reduce MMR from chosen user
+/leaderboard - check current leaderboard
+/ban {user id} {user chat id} - ban selected user
+`;
+
+            bot.sendMessage(chatId, message, { parse_mode: 'Markdown' });
             break;
         }
+
         case 'send-report':{
             bot.sendMessage(chatId, 'Please tell us what do you want to report in maximum details');
             bot.once('message', async (message) =>{
                 const response = message.text;
                 console.log(response);
-                await bot.sendMessage(adminChatId, `Report: ${response}\nUser Chat ID: ${chatId}\nUsername: ${message.from.username}`);
+                await bot.sendMessage(adminChatId,
+                    `MMR Request:${response}
+                        \nUser Chat ID: ${chatId}
+                        \nUsername: ${message.from.username}
+                        \nUser ID:${message.from.id}`);
                 await bot.sendMessage(chatId,'Thanks for cooperation. You may get additional MMR for this)')
             })
             break;
@@ -86,7 +95,11 @@ bot.on('callback_query', (callbackQuery)=>{
                     const response = message.text;
 
                     console.log(response, chatId);
-                    await bot.sendMessage(adminChatId, `MMR Request:${response}\nUser Chat ID: ${chatId}\nUsername: ${message.from.username}`);
+                    await bot.sendMessage(adminChatId,
+                        `MMR Request:${response}
+                        \nUser Chat ID: ${chatId}
+                        \nUsername: ${message.from.username}
+                        \nUser ID:${message.from.id}`);
                     await bot.sendMessage(chatId, 'Thanks for submitting. Our admin will review it soon');
 
 
@@ -130,6 +143,22 @@ bot.onText(/\/reduce (.+) (\d+)/, (message, match) => {
             bot.sendMessage(chatId, `Error reducing MMR: ${error.message}`);
         });
 });
+bot.onText(/\/ban (.+) (.+)/, (message, match) => {
+    //todo: Needed to be tested
+    const chatId = message.chat.id;
+    const userId = match[1];
+    const userChatId = match[2];
+
+    bot.banChatMember(userChatId, userId)
+        .then(() => {
+            console.log(`Banned user ${userId} from chat ${chatId}`);
+            bot.sendMessage(chatId, `User ${userId} has been banned.`);
+        })
+        .catch((error) => {
+            console.error(`Error banning user ${userId} from chat ${chatId}: ${error}`);
+            bot.sendMessage(chatId, `Failed to ban user ${userId}. Please try again.`);
+        });
+});
 
 bot.onText(/\/add (.+) (\d+)/, async (message, match) => {
     const chatId = message.chat.id;
@@ -153,20 +182,57 @@ bot.onText(/\/leaderboard/, async (message) => {
 
     try {
         // Retrieve all users from the database
-        const users = await userOps.getAllUsers();
+        let users = await userOps.getAllUsers();
+        let legendary = [];
+        let university = [];
+        let school = [];
 
         // Sort users in descending order based on MMR
         users.sort((x, y) => y.mmr - x.mmr);
 
-        // Format the users data into a table
-        const tableRows = users.map((user, index) => {
+        //sort users for each tier
+        for (let i = 0; i < users.length; i++) {
+            const user = users[i];
+
+            if (user.mmr >= 7000 && legendary.length < 10) {
+                legendary.push(user);
+            } else if (user.mmr >= 4000 && user.mmr < 7000 && university.length < 10) {
+                university.push(user);
+            } else if (school.length < 10) {
+                school.push(user);
+            }
+
+            // Check if all tiers have the desired number of users
+            if (legendary.length === 10 && university.length === 10 && school.length === 10) {
+                // Exit the loop once the desired number of users for each tier is collected
+                break;
+            }
+        }
+        // Format the users data into tables for each tier
+        const tableRowsLegendary = legendary.map((user, index) => {
             const { nickname, mmr, level, title } = user;
             return `${index + 1}. ${nickname} - MMR: ${mmr}, Level: ${level}, Title: ${title}`;
         });
-        const table = tableRows.join('\n');
 
-        // Send the table as a message in Telegram
-        bot.sendMessage(chatId, `Current leaderboard:\n${table}`);
+        const tableRowsUniversity = university.map((user, index) => {
+            const { nickname, mmr, level, title } = user;
+            return `${index + 1}. ${nickname} - MMR: ${mmr}, Level: ${level}, Title: ${title}`;
+        });
+
+        const tableRowsSchool = school.map((user, index) => {
+            const { nickname, mmr, level, title } = user;
+            return `${index + 1}. ${nickname} - MMR: ${mmr}, Level: ${level}, Title: ${title}`;
+        });
+
+        // Join the table rows for each tier
+        const tableLegendary = tableRowsLegendary.join('\n');
+        const tableUniversity = tableRowsUniversity.join('\n');
+        const tableSchool = tableRowsSchool.join('\n');
+
+        // Print the tables for each tier
+        bot.sendMessage(chatId, `Legendary tier:\n${tableLegendary}`)
+            .then(bot.sendMessage(chatId, `University tier:\n${tableUniversity}`)
+                .then(bot.sendMessage(chatId, `School tier:\n${tableSchool}`)));
     } catch (error) {
         console.error('Error retrieving users:', error);
         bot.sendMessage(chatId, 'Failed to retrieve leaderboard. Please try again.');
