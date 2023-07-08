@@ -5,7 +5,7 @@ const dbPath = 'database.db'
 const userOps = require('./userOperations')
 const User = require('./user');
 const db = new sqlite3.Database(dbPath);
-//v 0.8.6
+//v 0.8.7
 
 const adminChatId = '714447767'; //should be Bogdan
 
@@ -166,6 +166,10 @@ bot.onText(/\/reduce (.+) (\d+)/, (message, match) => {
         bot.sendMessage(chatId, `Invalid MMR value. Please provide a valid number.`);
         return;
     }
+    if (chatId !== adminChatId){
+        bot.sendMessage(chatId, 'Sorry, you do not have a permission for that');
+        return;
+    }
 
     userOps.changeMMR(nickname, -Math.abs(mmr))  // Pass the MMR as a positive value
         .then(() => {
@@ -180,6 +184,11 @@ bot.onText(/\/ban (\d+) (.+)/, (message, match) => {
     const chatId = message.chat.id;
     const userChatId = match[1];
     const messageReason = match[2];
+
+    if (chatId !== adminChatId){
+        bot.sendMessage(chatId, 'Sorry, you do not have a permission for that');
+        return;
+    }
 
     bot.banChatMember(userChatId, messageReason)
         .then(() => {
@@ -199,6 +208,10 @@ bot.onText(/\/add (.+) (\d+)/, async (message, match) => {
 
     if (Number.isNaN(mmr)) {
         bot.sendMessage(chatId, `Invalid MMR value. Please provide a valid number.`);
+        return;
+    }
+    if (chatId !== adminChatId){
+        bot.sendMessage(chatId, 'Sorry, you do not have a permission for that');
         return;
     }
 
