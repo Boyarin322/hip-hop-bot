@@ -5,7 +5,7 @@ const dbPath = 'database.db'
 const userOps = require('./userOperations')
 const User = require('./user');
 const db = new sqlite3.Database(dbPath);
-//v 0.8
+//v 0.8.6
 
 const adminChatId = '714447767'; //should be Bogdan
 
@@ -90,7 +90,7 @@ Available commands:
         }
 
         case 'send-report':{
-            bot.sendMessage(chatId, 'Please tell us what do you want to report in maximum details');
+            bot.sendMessage(chatId, 'Please tell us what do you want to report in details');
             bot.once('message', async (message) =>{
                 const response = message.text;
                 console.log(response);
@@ -175,20 +175,20 @@ bot.onText(/\/reduce (.+) (\d+)/, (message, match) => {
             bot.sendMessage(chatId, `Error reducing MMR: ${error.message}`);
         });
 });
-bot.onText(/\/ban (.+) (.+)/, (message, match) => {
+bot.onText(/\/ban (\d+) (.+)/, (message, match) => {
     //todo: Needed to be tested
     const chatId = message.chat.id;
-    const userId = match[1];
-    const userChatId = match[2];
+    const userChatId = match[1];
+    const messageReason = match[2];
 
-    bot.banChatMember(userChatId, userId)
+    bot.banChatMember(userChatId, messageReason)
         .then(() => {
-            console.log(`Banned user ${userId} from chat ${chatId}`);
+            console.log(`Banned user ${userChatId}`);
             bot.sendMessage(chatId, `User ${userId} has been banned.`);
         })
         .catch((error) => {
-            console.error(`Error banning user ${userId} from chat ${chatId}: ${error}`);
-            bot.sendMessage(chatId, `Failed to ban user ${userId}. Please try again.`);
+            console.error(`Error banning user ${userChatId} : ${error}`);
+            bot.sendMessage(chatId, `Failed to ban user ${userChatId}. Please try again.`);
         });
 });
 
