@@ -7,7 +7,7 @@ const User = require('./user');
 const db = new sqlite3.Database(dbPath);
 //v 0.9
 
-const adminChatId = 714447767; //should be Bogdan
+const adminChatId = 714447767; //should be admin (not mine)
 //todo: Change it, it is complete BS
 let waitingForNickname = false;
 let waitingForRequestMMR = false;
@@ -69,7 +69,6 @@ bot.onText(/\/menu/, async (message) =>{
         reply_markup: {
             inline_keyboard: [
                 [{ text: 'Profile', callback_data: 'profile' }],
-                //todo: Create commands in menu, so user can acces it via buttons, not writting commands
                 [{ text: 'Commands', callback_data: 'commands' }],
                 [{ text: 'Request MMR', callback_data: 'request-mmr' }],
                 [{text: 'Send report', callback_data: 'send-report'}]
@@ -155,7 +154,6 @@ bot.onText(/\/(reduce|add) (.+) (\d+)/, async (message, match) => {
     }
 });
 bot.onText(/\/(ban|unban) (\d+)/, (message, match) => {
-    //todo: needs to be tested
 
     const chatId = message.chat.id;
     const command = match[1]; // "ban" or "unban"
@@ -276,7 +274,6 @@ async function requestReport(chatId){
     })
 }
 async function requestMMR(chatId){
-    //todo test
     if (!waitingForRequestMMR) {
         waitingForRequestMMR = true;
 
@@ -326,7 +323,6 @@ async function requestMMR(chatId){
     }
 }
 async function showProfile(chatId) {
-    //todo test
     const user = await userOps.getUser(chatId);
     console.log(user);
     const {nickname, mmr, level, title} = user;
