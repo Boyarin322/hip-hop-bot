@@ -5,24 +5,31 @@ const dbPath = 'database.db'
 const userOps = require('./userOperations')
 const User = require('./user');
 const db = new sqlite3.Database(dbPath);
-//v 0.9
+//v 0.91
 
 const adminChatId = 714447767; //should be admin (not mine)
-//todo: Change it, it is complete BS
+
 let waitingForNickname = false;
-let waitingForRequestMMR = false;
+
+async function truncateUsers() {
+    try {
+        await User.destroy({ truncate: true });
+        console.log('Users table truncated successfully.');
+    } catch (error) {
+        console.error('Error truncating users table:', error);
+    }
+}
+
 bot.on('message', async (message) => {
     const chatId = message.chat.id;
     if(await checkIfBanned(chatId)) return;
 
     if (waitingForNickname) {
         waitingForNickname = false;
-
         const nickname = message.text;
         console.log('Nickname:', nickname);
-
         // Perform any actions or logic with the captured nickname here
-        await userOps.createUser(nickname, chatId)
+        userOps.createUser(nickname, chatId)
             .then(() => {
                 // Reply with a confirmation or further instructions
                 bot.sendMessage(chatId, `Great! Welcome to Hip-Hop Club, ${nickname}!
@@ -43,10 +50,7 @@ bot.onText(/\/echo (.+)/, (message, match) =>{
 
 bot.onText(/\/start/, async (message) => {
     const chatId = message.chat.id;
-    if(await checkIfBanned(chatId)) return;
-
     const isUserRegistered = await userOps.IsUserRegistered(chatId);
-
     if (!isUserRegistered) {
         bot.sendMessage(chatId, 'Hi, are you new to Hip-Hop? Tell me your nickname and we will register you to our cult')
             .then(() => {
@@ -57,7 +61,7 @@ bot.onText(/\/start/, async (message) => {
         });
     }
     else {
-       await bot.sendMessage(chatId, 'Sorry, you already registered');
+        await bot.sendMessage(chatId, 'Sorry, you already registered');
     }
 });
 bot.onText(/\/menu/, async (message) =>{
@@ -88,7 +92,7 @@ bot.on('callback_query', async (callbackQuery)=>{
             break;
         }
         case 'commands': {
-            await showProfile(chatId);
+            await showCommands(chatId);
             break;
         }
         case 'send-report':{
@@ -274,23 +278,12 @@ async function requestReport(chatId){
     })
 }
 async function requestMMR(chatId){
-    if (!waitingForRequestMMR) {
-        waitingForRequestMMR = true;
-
         await bot.sendMessage(chatId, 'Describe your hip-hop achievement in details');
 
         bot.once('message', async (message) => {
             const response = message.text;
-
             console.log(response, chatId);
-            await bot.sendMessage(adminChatId,
-                `MMR Request:${response}
-                        \nUser Chat ID: ${chatId}
-                        \nUsername: ${message.from.username}
-                        \nUser ID:${message.from.id}`);
             await bot.sendMessage(chatId, 'Thanks for submitting. Our admin will review it soon');
-
-
             await bot.sendMessage(chatId, 'Do you have any photo proof or video proof? If not, type anything');
             bot.once('message', async (message) => {
                 if (message.photo && message.photo.length > 0) {
@@ -298,6 +291,11 @@ async function requestMMR(chatId){
                     const photo = message.photo[0];
                     const photoId = photo.file_id;
 
+                    await bot.sendMessage(adminChatId,
+                        `MMR Request:${response}
+                        \nUser Chat ID: ${chatId}
+                        \nUsername: ${message.from.username}
+                        \nUser ID:${message.from.id}`);
                     // Send the photo to the admin
                     await bot.sendPhoto(adminChatId, photoId)
                         .then(() => bot.sendMessage(chatId, 'Photo sent to admin.'))
@@ -306,6 +304,12 @@ async function requestMMR(chatId){
                     //Handle the video
                     const videoId = message.video.file_id;
                     console.log(videoId, message);
+
+                    await bot.sendMessage(adminChatId,
+                        `MMR Request:${response}
+                        \nUser Chat ID: ${chatId}
+                        \nUsername: ${message.from.username}
+                        \nUser ID:${message.from.id}`);
                     await bot.sendVideo(adminChatId, videoId)
                         .then(() => {
                             bot.sendMessage(chatId, 'Video sent to admin');
@@ -315,12 +319,16 @@ async function requestMMR(chatId){
                         });
 
                 } else {
+                    await bot.sendMessage(adminChatId,
+                        `MMR Request:${response}
+                        \nUser Chat ID: ${chatId}
+                        \nUsername: ${message.from.username}
+                        \nUser ID:${message.from.id}`);
                     await bot.sendMessage(chatId, 'No photo/video provided. You will get lower amount of MMR');
                 }
             });
-            waitingForRequestMMR = false;
         });
-    }
+
 }
 async function showProfile(chatId) {
     const user = await userOps.getUser(chatId);
