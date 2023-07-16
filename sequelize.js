@@ -6,7 +6,6 @@ const sequelize = new Sequelize({
     storage: 'database.db'
 });
 
-// Define the User model (assuming the code is similar to what we have in the user.js file)
 const User = require('./user');
 
 // Sync the models with the database

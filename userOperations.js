@@ -47,14 +47,36 @@ const userOperations = {
             throw error;
         }
     },
+    handleBanUser: async (chatId, operation)=>{
+        try{
+            const user = await User.findOne({where : {chatId}});
+            if (operation === 'ban'){
+                user.set('isBanned', true);
+                await user.save();
+            }
+            else {
+                user.set('isBanned', false);
+                await user.save();
+            }
+            return true;
+        }
+        catch (error){
+            console.log(`Error banning/unbaning user: ${chatId} : ${error}`);
+            throw error;
+        }
+    },
     getUser: async (chatId) => {
         try {
             const user = await User.findOne({where: {chatId}});
-            const { nickname, mmr} = user;
+            if (!user) {
+                console.log(`User with chatId ${chatId} not found`);
+                return null;
+            }
+            const { nickname, mmr, isBanned} = user;
             const level = Math.floor(mmr/100); // Access the level property directly
             const title = getTitle(level); // Access the title property directly
-            console.log(`User: ${nickname}, MMR: ${mmr}, Level: ${level}, Title: ${title}`);
-            return { nickname, mmr, level, title };
+            console.log(`User: ${nickname}, MMR: ${mmr}, Level: ${level}, Title: ${title}, Is Banned:${isBanned}`);
+            return { nickname, mmr, level, title, isBanned};
         }
         catch (error){
             console.error('Error getting the user');
@@ -64,15 +86,16 @@ const userOperations = {
     getAllUsers: async () => {
         try {
             const users = await User.findAll({
-                attributes: ['nickname', 'mmr', 'level', 'title', 'chatId'],
+                attributes: ['nickname', 'mmr', 'level', 'title', 'chatId', 'isBanned'],
             });
 
             return users.map((user) => {
-                const { nickname, mmr, chatId } = user;
+                const { nickname, mmr, chatId, isBanned} = user;
                 const level = Math.floor(mmr/100); // Access the level property directly
                 const title = getTitle(level); // Access the title property directly
-                console.log(`User: ${nickname}, MMR: ${mmr}, Level: ${level}, Title: ${title}, ChatId: ${chatId}`);
-                return { nickname, mmr, level, title, chatId };
+                console.log(`User: ${nickname}, MMR: ${mmr}, Level: ${level}, 
+                Title: ${title}, ChatId: ${chatId} IsBanned:${isBanned}`);
+                return { nickname, mmr, level, title, chatId, isBanned};
             });
         } catch (error) {
             console.error('Error retrieving users:', error);

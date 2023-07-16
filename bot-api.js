@@ -5,21 +5,46 @@ const dbPath = 'database.db'
 const userOps = require('./userOperations')
 const User = require('./user');
 const db = new sqlite3.Database(dbPath);
-//v 0.8.7
+//v 0.89
 
-const adminChatId = '714447767'; //should be Bogdan
+const adminChatId = 714447767; //should be Bogdan
+//todo: Change it, it is complete BS
+let waitingForNickname = false;
+let waitingForRequestMMR = false;
+bot.on('message', async (message) => {
+    const chatId = message.chat.id;
+    if(await checkIfBanned(chatId)) return;
 
+    if (waitingForNickname) {
+        waitingForNickname = false;
+
+        const nickname = message.text;
+        console.log('Nickname:', nickname);
+
+        // Perform any actions or logic with the captured nickname here
+        await userOps.createUser(nickname, chatId)
+            .then(() => {
+                // Reply with a confirmation or further instructions
+                bot.sendMessage(chatId, `Great! Welcome to Hip-Hop Club, ${nickname}!
+                \nNext, input /menu for further steps
+                \nOr check the current leaderboard /leaderboard
+                \nAlso, to add hip-hop MMR to someone, type /add {nickname} {mmr}`);
+            })
+            .catch(() => {
+                bot.sendMessage(chatId, 'Failed to register user. Please try again.');
+            });
+    }
+});
 bot.onText(/\/echo (.+)/, (message, match) =>{
     const chatId = message.chat.id;
     const response = match[1];
     bot.sendMessage(chatId, response);
 });
 
-//todo: Change it, it is complete BS
-let waitingForNickname = false;
-let waitingForRequestMMR = false;
 bot.onText(/\/start/, async (message) => {
     const chatId = message.chat.id;
+    if(await checkIfBanned(chatId)) return;
+
     const isUserRegistered = await userOps.IsUserRegistered(chatId);
 
     if (!isUserRegistered) {
@@ -35,8 +60,9 @@ bot.onText(/\/start/, async (message) => {
        await bot.sendMessage(chatId, 'Sorry, you already registered');
     }
 });
-bot.onText(/\/menu/, (message) =>{
+bot.onText(/\/menu/, async (message) =>{
     const chatId = message.chat.id;
+    if(await checkIfBanned(chatId)) return;
 
     const menu = {
         disable_notification: true,
@@ -52,8 +78,9 @@ bot.onText(/\/menu/, (message) =>{
     };
     bot.sendMessage(chatId, 'Choose an option:', menu);
 })
-bot.on('callback_query', (callbackQuery)=>{
+bot.on('callback_query', async (callbackQuery)=>{
     const chatId = callbackQuery.message.chat.id;
+    if(await checkIfBanned(chatId)) return;
     const data = callbackQuery.data;
 
     switch (data){
@@ -95,7 +122,7 @@ Available commands:
                 const response = message.text;
                 console.log(response);
                 await bot.sendMessage(adminChatId,
-                    `MMR Request:${response}
+                    `Report:${response}
                         \nUser Chat ID: ${chatId}
                         \nUsername: ${message.from.username}
                         \nUser ID:${message.from.id}`);
@@ -153,61 +180,55 @@ Available commands:
                 });
             }
             break;
-
         }
     }
 })
-bot.onText(/\/reduce (.+) (\d+)/, (message, match) => {
+bot.onText(/\/(reduce|add) (.+) (\d+)/, async (message, match) => {
     const chatId = message.chat.id;
-    const nickname = match[1];
-    const mmr = parseInt(match[2]);
+    if(await checkIfBanned(chatId)) return;
+    const command = match[1]; // "reduce" or "add"
+    const nickname = match[2];
+    const mmr = parseInt(match[3]);
 
     if (Number.isNaN(mmr)) {
-        bot.sendMessage(chatId, `Invalid MMR value. Please provide a valid number.`);
+        await bot.sendMessage(chatId, `Invalid MMR value. Please provide a valid number.`);
         return;
     }
-    if (chatId !== adminChatId){
-        bot.sendMessage(chatId, 'Sorry, you do not have a permission for that');
+    if (chatId !== adminChatId) {
+        await bot.sendMessage(chatId, 'Sorry, you do not have permission for that.');
         return;
     }
 
-    userOps.changeMMR(nickname, -Math.abs(mmr))  // Pass the MMR as a positive value
-        .then(() => {
-            bot.sendMessage(chatId, `Successfully reduced ${mmr} MMR from ${nickname}.`);
-        })
-        .catch(error => {
-            bot.sendMessage(chatId, `Error reducing MMR: ${error.message}`);
-        });
+    if (command === 'reduce') {
+       await userOps.changeMMR(nickname, -Math.abs(mmr))
+            .then(() => {
+                bot.sendMessage(chatId, `Successfully reduced ${mmr} MMR from ${nickname}.`);
+            })
+            .catch(error => {
+                bot.sendMessage(chatId, `Error reducing MMR: ${error.message}`);
+            });
+    } else if (command === 'add') {
+        await userOps.changeMMR(nickname, mmr)
+            .then(() => {
+                bot.sendMessage(chatId, `Successfully added ${mmr} MMR to ${nickname}.`);
+            })
+            .catch(error => {
+                bot.sendMessage(chatId, `Error adding MMR: ${error.message}`);
+            });
+    } else {
+       await bot.sendMessage(chatId, `Invalid command. Please use either /reduce or /add followed by the nickname and MMR value.`);
+    }
 });
-bot.onText(/\/ban (\d+) (.+)/, (message, match) => {
-    //todo: Needed to be tested
+bot.onText(/\/(ban|unban) (\d+)/, (message, match) => {
+    //todo: needs to be tested
+
     const chatId = message.chat.id;
-    const userChatId = match[1];
-    const messageReason = match[2];
+    const command = match[1]; // "ban" or "unban"
+    const userChatId = match[2];
+    console.log(chatId, command, userChatId);
 
-    if (chatId !== adminChatId){
-        bot.sendMessage(chatId, 'Sorry, you do not have a permission for that');
-        return;
-    }
-
-    bot.banChatMember(userChatId, messageReason)
-        .then(() => {
-            console.log(`Banned user ${userChatId}`);
-            bot.sendMessage(chatId, `User ${userId} has been banned.`);
-        })
-        .catch((error) => {
-            console.error(`Error banning user ${userChatId} : ${error}`);
-            bot.sendMessage(chatId, `Failed to ban user ${userChatId}. Please try again.`);
-        });
-});
-
-bot.onText(/\/add (.+) (\d+)/, async (message, match) => {
-    const chatId = message.chat.id;
-    const nickname = match[1];
-    const mmr = parseInt(match[2]);
-
-    if (Number.isNaN(mmr)) {
-        bot.sendMessage(chatId, `Invalid MMR value. Please provide a valid number.`);
+    if (Number.isNaN(userChatId)) {
+        bot.sendMessage(chatId, `Invalid user chat ID. Please provide a valid number.`);
         return;
     }
     if (chatId !== adminChatId){
@@ -215,15 +236,38 @@ bot.onText(/\/add (.+) (\d+)/, async (message, match) => {
         return;
     }
 
-    try {
-        await userOps.changeMMR(nickname, mmr);
-        bot.sendMessage(chatId, `Successfully added ${mmr} MMR to ${nickname}.`);
-    } catch (error) {
-        bot.sendMessage(chatId, `Error adding MMR: ${error.message}`);
+    // Check if the command is "ban" or "unban"
+    if (command === 'ban') {
+        // Handle ban logic
+        userOps.handleBanUser(userChatId, command)
+            .then(() => {
+                console.log(`Banned user ${userChatId}`);
+                bot.sendMessage(chatId, `User ${userChatId} has been banned.`);
+            })
+            .catch((error) => {
+                console.error(`Error banning user ${userChatId} : ${error}`);
+                bot.sendMessage(chatId, `Failed to ban user ${userChatId}. Please try again.`);
+            });
+    } else if (command === 'unban') {
+        // Handle unban logic
+        userOps.handleBanUser(userChatId, command)
+            .then(() => {
+                console.log(`Unbanned user ${userChatId}`);
+                bot.sendMessage(chatId, `User ${userChatId} has been unbanned.`);
+            })
+            .catch((error) => {
+                console.error(`Error unbanning user ${userChatId} : ${error}`);
+                bot.sendMessage(chatId, `Failed to unban user ${userChatId}. Please try again.`);
+            });
+    } else {
+        // Invalid command
+        bot.sendMessage(chatId, `Invalid command. Please use either /ban or /unban followed by the user chat ID.`);
     }
 });
+
 bot.onText(/\/leaderboard/, async (message) => {
     const chatId = message.chat.id;
+    if(await checkIfBanned(chatId)) return;
 
     try {
         // Retrieve all users from the database
@@ -283,27 +327,12 @@ bot.onText(/\/leaderboard/, async (message) => {
         bot.sendMessage(chatId, 'Failed to retrieve leaderboard. Please try again.');
     }
 });
-
-bot.on('message', (message) => {
-    const chatId = message.chat.id;
-
-    if (waitingForNickname) {
-        waitingForNickname = false;
-
-        const nickname = message.text;
-        console.log('Nickname:', nickname);
-
-        // Perform any actions or logic with the captured nickname here
-        userOps.createUser(nickname, chatId)
-            .then(() => {
-                // Reply with a confirmation or further instructions
-                bot.sendMessage(chatId, `Great! Welcome to Hip-Hop Club, ${nickname}!
-                \nNext, input /menu for further steps
-                \nOr check the current leaderboard /leaderboard
-                \nAlso, to add hip-hop MMR to someone, type /add {nickname} {mmr}`);
-            })
-            .catch(() => {
-                bot.sendMessage(chatId, 'Failed to register user. Please try again.');
-            });
+async function checkIfBanned(chatId) {
+    const user = await userOps.getUser(chatId);
+    if (user && user.isBanned) {
+        await bot.sendMessage(chatId, 'Sorry, you had been banned');
+        console.log(user);
+        return true;
     }
-});
+    return false;
+}

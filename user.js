@@ -19,6 +19,11 @@ const User = sequelize.define('User', {
             this.setDataValue('title', this.getDataValue('title')); // Recalculate the title
         },
     },
+    isBanned:{
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false,
+    },
     chatId:{
       type: DataTypes.INTEGER,
       allowNull: false,
