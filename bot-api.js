@@ -5,7 +5,7 @@ const dbPath = 'database.db'
 const userOps = require('./userOperations')
 const User = require('./user');
 const db = new sqlite3.Database(dbPath);
-//v 0.89
+//v 0.9
 
 const adminChatId = 714447767; //should be Bogdan
 //todo: Change it, it is complete BS
@@ -85,103 +85,38 @@ bot.on('callback_query', async (callbackQuery)=>{
 
     switch (data){
         case 'profile':{
-            prof();
-            async function prof() {
-                const user = await userOps.getUser(chatId);
-                console.log(user);
-                const {nickname, mmr, level, title} = user;
-                const message = `
-                Name: ${nickname} ;
-MMR: ${mmr} ;
-Level: ${level} ;
-Title: ${title} ;`;
-                await bot.sendMessage(chatId, message, {parse_mode: 'Markdown'});
-
-            }
+            await showProfile(chatId);
             break;
         }
         case 'commands': {
-            const message = `
-Available commands:
-
-/start - register new user
-/menu - check our menu
-/add {nickname} {mmr number} - add MMR to chosen user
-/reduce {nickname} {mmr number} - reduce MMR from chosen user
-/leaderboard - check current leaderboard
-/ban {user id} {user chat id} - ban selected user
-`;
-
-            bot.sendMessage(chatId, message, { parse_mode: 'Markdown' });
+            await showProfile(chatId);
             break;
         }
-
         case 'send-report':{
-            bot.sendMessage(chatId, 'Please tell us what do you want to report in details');
-            bot.once('message', async (message) =>{
-                const response = message.text;
-                console.log(response);
-                await bot.sendMessage(adminChatId,
-                    `Report:${response}
-                        \nUser Chat ID: ${chatId}
-                        \nUsername: ${message.from.username}
-                        \nUser ID:${message.from.id}`);
-                await bot.sendMessage(chatId,'Thanks for cooperation. You may get additional MMR for this)')
-            })
+            await requestReport(chatId)
             break;
         }
         case 'request-mmr': {
-            if (!waitingForRequestMMR) {
-                waitingForRequestMMR = true;
-
-                bot.sendMessage(chatId, 'Describe your hip-hop achievement in details');
-
-                bot.once('message', async (message) => {
-                    const response = message.text;
-
-                    console.log(response, chatId);
-                    await bot.sendMessage(adminChatId,
-                        `MMR Request:${response}
-                        \nUser Chat ID: ${chatId}
-                        \nUsername: ${message.from.username}
-                        \nUser ID:${message.from.id}`);
-                    await bot.sendMessage(chatId, 'Thanks for submitting. Our admin will review it soon');
-
-
-                    await bot.sendMessage(chatId, 'Do you have any photo proof or video proof? If not, type anything');
-                    bot.once('message', async (message) => {
-                        if (message.photo && message.photo.length > 0) {
-                            // Handle the photo
-                            const photo = message.photo[0];
-                            const photoId = photo.file_id;
-
-                            // Send the photo to the admin
-                            await bot.sendPhoto(adminChatId, photoId)
-                                .then(() => bot.sendMessage(chatId, 'Photo sent to admin.'))
-                                .catch(() => bot.sendMessage(chatId, 'Fail to process the photo'));
-                        } else if (message.video){
-                            //Handle the video
-                            const videoId = message.video.file_id;
-                            console.log(videoId, message);
-                            await bot.sendVideo(adminChatId, videoId)
-                                .then(() => {
-                                    bot.sendMessage(chatId, 'Video sent to admin');
-                                })
-                                .catch(() => {
-                                    bot.sendMessage(chatId, 'Fail to process the video');
-                                });
-
-                        }
-                        else {
-                            await bot.sendMessage(chatId, 'No photo/video provided. You will get lower amount of MMR');
-                        }
-                    });
-                    waitingForRequestMMR = false;
-                });
-            }
+            await requestMMR(chatId);
             break;
         }
     }
+})
+bot.onText(/\/commands/, async (message) =>{
+    const chatId = message.chat.id;
+    await showCommands(chatId);
+})
+bot.onText(/\/report/, async (message) =>{
+    const chatId = message.chat.id;
+    await requestReport(chatId);
+})
+bot.onText(/\/profile/, async (message) =>{
+    const chatId = message.chat.id;
+    await showProfile(chatId);
+})
+bot.onText(/\/requestMMR/, async(message) =>{
+    const chatId = message.chat.id;
+    await requestMMR(chatId);
 })
 bot.onText(/\/(reduce|add) (.+) (\d+)/, async (message, match) => {
     const chatId = message.chat.id;
@@ -327,6 +262,82 @@ bot.onText(/\/leaderboard/, async (message) => {
         bot.sendMessage(chatId, 'Failed to retrieve leaderboard. Please try again.');
     }
 });
+async function requestReport(chatId){
+    await bot.sendMessage(chatId, 'Please tell us what do you want to report in details');
+    bot.once('message', async (message) =>{
+        const response = message.text;
+        console.log(response);
+        await bot.sendMessage(adminChatId,
+            `Report:${response}
+                        \nUser Chat ID: ${chatId}
+                        \nUsername: ${message.from.username}
+                        \nUser ID:${message.from.id}`);
+        await bot.sendMessage(chatId,'Thanks for cooperation. You may get additional MMR for this)')
+    })
+}
+async function requestMMR(chatId){
+    //todo test
+    if (!waitingForRequestMMR) {
+        waitingForRequestMMR = true;
+
+        await bot.sendMessage(chatId, 'Describe your hip-hop achievement in details');
+
+        bot.once('message', async (message) => {
+            const response = message.text;
+
+            console.log(response, chatId);
+            await bot.sendMessage(adminChatId,
+                `MMR Request:${response}
+                        \nUser Chat ID: ${chatId}
+                        \nUsername: ${message.from.username}
+                        \nUser ID:${message.from.id}`);
+            await bot.sendMessage(chatId, 'Thanks for submitting. Our admin will review it soon');
+
+
+            await bot.sendMessage(chatId, 'Do you have any photo proof or video proof? If not, type anything');
+            bot.once('message', async (message) => {
+                if (message.photo && message.photo.length > 0) {
+                    // Handle the photo
+                    const photo = message.photo[0];
+                    const photoId = photo.file_id;
+
+                    // Send the photo to the admin
+                    await bot.sendPhoto(adminChatId, photoId)
+                        .then(() => bot.sendMessage(chatId, 'Photo sent to admin.'))
+                        .catch(() => bot.sendMessage(chatId, 'Fail to process the photo'));
+                } else if (message.video) {
+                    //Handle the video
+                    const videoId = message.video.file_id;
+                    console.log(videoId, message);
+                    await bot.sendVideo(adminChatId, videoId)
+                        .then(() => {
+                            bot.sendMessage(chatId, 'Video sent to admin');
+                        })
+                        .catch(() => {
+                            bot.sendMessage(chatId, 'Fail to process the video');
+                        });
+
+                } else {
+                    await bot.sendMessage(chatId, 'No photo/video provided. You will get lower amount of MMR');
+                }
+            });
+            waitingForRequestMMR = false;
+        });
+    }
+}
+async function showProfile(chatId) {
+    //todo test
+    const user = await userOps.getUser(chatId);
+    console.log(user);
+    const {nickname, mmr, level, title} = user;
+    const message = `
+                Name: ${nickname} ;
+MMR: ${mmr} ;
+Level: ${level} ;
+Title: ${title} ;`;
+    await bot.sendMessage(chatId, message, {parse_mode: 'Markdown'});
+
+}
 async function checkIfBanned(chatId) {
     const user = await userOps.getUser(chatId);
     if (user && user.isBanned) {
@@ -335,4 +346,23 @@ async function checkIfBanned(chatId) {
         return true;
     }
     return false;
+}
+async function showCommands(chatId){
+    const message = `
+Available commands:
+
+/start - register new user
+/menu - check our menu
+/add {nickname} {mmr number} - add MMR to chosen user
+/reduce {nickname} {mmr number} - reduce MMR from chosen user
+/leaderboard - check current leaderboard
+/ban {user id} {user chat id} - ban selected user
+/unban - Unban selected user
+/profile - Shows your profile 
+/commands - Show all comands 
+/requestMMR - Send a request for mmr 
+/report - write a report about something
+`;
+
+    await bot.sendMessage(chatId, message, { parse_mode: 'Markdown' });
 }
