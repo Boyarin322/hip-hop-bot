@@ -11,14 +11,14 @@ const adminChatIds = [714447767, 946410097];
 
 let waitingForNickname = false;
 
-async function truncateUsers() {
-    try {
-        await User.destroy({ truncate: true });
-        console.log('Users table truncated successfully.');
-    } catch (error) {
-        console.error('Error truncating users table:', error);
-    }
-}
+// async function truncateUsers() {
+//     try {
+//         await User.destroy({ truncate: true });
+//         console.log('Users table truncated successfully.');
+//     } catch (error) {
+//         console.error('Error truncating users table:', error);
+//     }
+// }
 
 bot.on('message', async (message) => {
     const chatId = message.chat.id;
@@ -74,6 +74,7 @@ bot.onText(/\/menu/, async (message) =>{
             inline_keyboard: [
                 [{ text: 'Profile', callback_data: 'profile' }],
                 [{ text: 'Commands', callback_data: 'commands' }],
+                [{ text: 'Leaderboard', callback_data: 'leaderboard' }],
                 [{ text: 'Request MMR', callback_data: 'request-mmr' }],
                 [{text: 'Send report', callback_data: 'send-report'}]
             ]
@@ -89,6 +90,10 @@ bot.on('callback_query', async (callbackQuery)=>{
     switch (data){
         case 'profile':{
             await showProfile(chatId);
+            break;
+        }
+        case 'leaderboard':{
+            await showLeaderboard(chatId);
             break;
         }
         case 'commands': {
@@ -117,7 +122,7 @@ bot.onText(/\/profile/, async (message) =>{
     const chatId = message.chat.id;
     await showProfile(chatId);
 })
-bot.onText(/\/requestMMR/, async(message) =>{
+bot.onText(/\/request_mmr/, async(message) =>{
     const chatId = message.chat.id;
     await requestMMR(chatId);
 })
@@ -173,7 +178,13 @@ bot.onText(/\/message (\d+) (.+)/, async (message, match) => {
         console.log(userChatId, 'Message sent');
     }
 });
-
+bot.onText(/\/change_name (\d+) (.+)/, async (message, match) =>{
+   const chatId = message.chat.id;
+   const userChatId = parseInt(match[1]);
+   const newName = match[2];
+   console.log();
+   await changeName(chatId, userChatId, newName);
+});
 bot.onText(/\/(ban|unban) (\d+)/, async (message, match) => {
     const chatId = message.chat.id;
     if(await checkIfAdmin(chatId) === false) return;
@@ -217,6 +228,9 @@ bot.onText(/\/(ban|unban) (\d+)/, async (message, match) => {
 
 bot.onText(/\/leaderboard/, async (message) => {
     const chatId = message.chat.id;
+    await showLeaderboard(chatId);
+});
+async function showLeaderboard(chatId){
     if(await checkIfBanned(chatId)) return;
 
     try {
@@ -276,7 +290,7 @@ bot.onText(/\/leaderboard/, async (message) => {
         console.error('Error retrieving users:', error);
         bot.sendMessage(chatId, 'Failed to retrieve leaderboard. Please try again.');
     }
-});
+}
 async function requestReport(chatId){
     await bot.sendMessage(chatId, 'Please tell us what do you want to report in details');
     bot.once('message', async (message) =>{
@@ -303,41 +317,48 @@ async function requestMMR(chatId){
                     // Handle the photo
                     const photo = message.photo[0];
                     const photoId = photo.file_id;
-
-                    await bot.sendMessage(adminChatIds,
-                        `MMR Request:${response}
+                    adminChatIds.forEach(adminId => {
+                        bot.sendMessage(adminId,
+                            `MMR Request:${response}
                         \nUser Chat ID: ${chatId}
                         \nUsername: ${message.from.username}
                         \nUser ID:${message.from.id}`);
+                    })
                     // Send the photo to the admin
-                    await bot.sendPhoto(adminChatIds, photoId)
-                        .then(() => bot.sendMessage(chatId, 'Photo sent to admin.'))
-                        .catch(() => bot.sendMessage(chatId, 'Fail to process the photo'));
+                    adminChatIds.forEach(adminId => {
+                        bot.sendPhoto(adminId, photoId)
+                            .then(() => bot.sendMessage(chatId, 'Photo sent to admin.'))
+                            .catch(() => bot.sendMessage(chatId, 'Fail to process the photo'));
+                    })
                 } else if (message.video) {
                     //Handle the video
                     const videoId = message.video.file_id;
                     console.log(videoId, message);
-
-                    await bot.sendMessage(adminChatIds,
-                        `MMR Request:${response}
+                        adminChatIds.forEach(adminId=> {
+                            bot.sendMessage(adminId,
+                                `MMR Request:${response}
                         \nUser Chat ID: ${chatId}
                         \nUsername: ${message.from.username}
                         \nUser ID:${message.from.id}`);
-                    await bot.sendVideo(adminChatIds, videoId)
-                        .then(() => {
-                            bot.sendMessage(chatId, 'Video sent to admin');
                         })
-                        .catch(() => {
-                            bot.sendMessage(chatId, 'Fail to process the video');
-                        });
-
+                    adminChatIds.forEach(adminId => {
+                        bot.sendVideo(adminId, videoId)
+                            .then(() => {
+                                bot.sendMessage(chatId, 'Video sent to admin');
+                            })
+                            .catch(() => {
+                                bot.sendMessage(chatId, 'Fail to process the video');
+                            });
+                    })
                 } else {
-                    await bot.sendMessage(adminChatIds,
-                        `MMR Request:${response}
+                    adminChatIds.forEach(adminId => {
+                        bot.sendMessage(adminId,
+                            `MMR Request:${response}
                         \nUser Chat ID: ${chatId}
                         \nUsername: ${message.from.username}
                         \nUser ID:${message.from.id}`);
-                    await bot.sendMessage(chatId, 'No photo/video provided. You will get lower amount of MMR');
+                        bot.sendMessage(chatId, 'No photo/video provided. You will get lower amount of MMR');
+                    })
                 }
             });
         });
@@ -370,26 +391,39 @@ Available commands:
 
 /start - register new user
 /menu - check our menu
-/add {nickname} {mmr number} - add MMR to chosen user
-/reduce {nickname} {mmr number} - reduce MMR from chosen user
+/add {nickname} {mmr number} - add MMR to chosen user (admin only)
+/reduce {nickname} {mmr number} - reduce MMR from chosen user (admin only)
 /leaderboard - check current leaderboard
-/ban {user id} {user chat id} - ban selected user
-/unban - Unban selected user
+/ban {user id} {user chat id} - ban selected user (admin only)
+/unban - Unban selected user (admin only)
 /profile - Shows your profile 
 /commands - Show all comands 
 /requestMMR - Send a request for mmr 
 /report - write a report about something
+/changeName {userChatId} {newName} - change name
+/message {chatId} {text} - write a message to someone from bot (admin only)
 `;
 
     await bot.sendMessage(chatId, message, { parse_mode: 'Markdown' });
 }
 async function checkIfAdmin(chatId){
     adminChatIds.forEach(adminId=>{
-        console.log(adminId, chatId);
         if (chatId === adminId){
             return true;
         }
-        bot.sendMessage(chatId, 'Sorry, you do not have a permission for that');
         return false;
     })
+}
+async function changeName(chatId, userChatId, newName) {
+    console.log(chatId, userChatId, newName);
+    if ((await checkIfAdmin(chatId) === false) && chatId !== userChatId) {
+        bot.sendMessage(chatId, 'Sorry, you don not have permission for that');
+    } else {
+        try {
+            await userOps.changeName(newName, userChatId);
+            bot.sendMessage(chatId, `You changed ${userChatId} to ${newName}`);
+        } catch (error) {
+            bot.sendMessage(chatId, 'Failed to change name');
+        }
+    }
 }

@@ -12,6 +12,21 @@ const userOperations = {
             throw error;
         }
     },
+    changeName: async (newNickname, chatId) =>{
+        try{
+            const user = await User.findOne({ where: { chatId } });
+            console.log(user);
+            if(user === null){
+                throw new Error('No user found '+ newNickname + chatId);
+            }
+            await user.set('nickname', newNickname);
+            await user.save();
+            console.log(`User: ${chatId} changed name to ${newNickname}`);
+        } catch (error){
+            console.log('Error changing name', error);
+            throw error;
+        }
+    },
     IsUserRegistered: async (chatId)=>{
         try {
             const user = await User.findOne({ where: { chatId: chatId } });
@@ -70,6 +85,24 @@ const userOperations = {
             const user = await User.findOne({where: {chatId}});
             if (!user) {
                 console.log(`User with chatId ${chatId} not found`);
+                return null;
+            }
+            const { nickname, mmr, isBanned} = user;
+            const level = Math.floor(mmr/100); // Access the level property directly
+            const title = getTitle(level); // Access the title property directly
+            console.log(`User: ${nickname}, MMR: ${mmr}, Level: ${level}, Title: ${title}, Is Banned:${isBanned}`);
+            return { nickname, mmr, level, title, isBanned};
+        }
+        catch (error){
+            console.error('Error getting the user');
+            throw error;
+        }
+    },
+    getUserByName: async (name) => {
+        try {
+            const user = await User.findOne({where: {nickname : name}});
+            if (!user) {
+                console.log(`User with name ${name} not found`);
                 return null;
             }
             const { nickname, mmr, isBanned} = user;
