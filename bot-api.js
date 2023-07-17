@@ -5,9 +5,9 @@ const dbPath = 'database.db'
 const userOps = require('./userOperations')
 const User = require('./user');
 const db = new sqlite3.Database(dbPath);
-//v 0.91
+//v 0.91a
 
-const adminChatId = 714447767; //should be admin (not mine)
+const adminChatIds = [714447767, 946410097];
 
 let waitingForNickname = false;
 
@@ -124,16 +124,13 @@ bot.onText(/\/requestMMR/, async(message) =>{
 bot.onText(/\/(reduce|add) (.+) (\d+)/, async (message, match) => {
     const chatId = message.chat.id;
     if(await checkIfBanned(chatId)) return;
+    if(await checkIfAdmin(chatId) === false) return;
     const command = match[1]; // "reduce" or "add"
     const nickname = match[2];
     const mmr = parseInt(match[3]);
 
     if (Number.isNaN(mmr)) {
         await bot.sendMessage(chatId, `Invalid MMR value. Please provide a valid number.`);
-        return;
-    }
-    if (chatId !== adminChatId) {
-        await bot.sendMessage(chatId, 'Sorry, you do not have permission for that.');
         return;
     }
 
@@ -157,9 +154,29 @@ bot.onText(/\/(reduce|add) (.+) (\d+)/, async (message, match) => {
        await bot.sendMessage(chatId, `Invalid command. Please use either /reduce or /add followed by the nickname and MMR value.`);
     }
 });
-bot.onText(/\/(ban|unban) (\d+)/, (message, match) => {
-
+bot.onText(/\/message (\d+) (.+)/, async (message, match) => {
     const chatId = message.chat.id;
+    if(await checkIfAdmin(chatId) === false) return;
+
+    const userChatId = match[1]; // Captured group (\d+), representing the user's chat ID
+    const messageToUser = match[2]; // Captured group (.+), representing the message content
+    console.log(chatId, userChatId, messageToUser);
+
+    const user = await userOps.getUser(userChatId);
+    if (!user) {
+        await bot.sendMessage(chatId, 'No such user in db');
+        console.log(userChatId, 'No such user in db');
+        return;
+    } else {
+        await bot.sendMessage(userChatId, messageToUser);
+        await bot.sendMessage(chatId, 'Message sent');
+        console.log(userChatId, 'Message sent');
+    }
+});
+
+bot.onText(/\/(ban|unban) (\d+)/, async (message, match) => {
+    const chatId = message.chat.id;
+    if(await checkIfAdmin(chatId) === false) return;
     const command = match[1]; // "ban" or "unban"
     const userChatId = match[2];
     console.log(chatId, command, userChatId);
@@ -168,15 +185,11 @@ bot.onText(/\/(ban|unban) (\d+)/, (message, match) => {
         bot.sendMessage(chatId, `Invalid user chat ID. Please provide a valid number.`);
         return;
     }
-    if (chatId !== adminChatId){
-        bot.sendMessage(chatId, 'Sorry, you do not have a permission for that');
-        return;
-    }
 
     // Check if the command is "ban" or "unban"
     if (command === 'ban') {
         // Handle ban logic
-        userOps.handleBanUser(userChatId, command)
+       await userOps.handleBanUser(userChatId, command)
             .then(() => {
                 console.log(`Banned user ${userChatId}`);
                 bot.sendMessage(chatId, `User ${userChatId} has been banned.`);
@@ -187,7 +200,7 @@ bot.onText(/\/(ban|unban) (\d+)/, (message, match) => {
             });
     } else if (command === 'unban') {
         // Handle unban logic
-        userOps.handleBanUser(userChatId, command)
+       await userOps.handleBanUser(userChatId, command)
             .then(() => {
                 console.log(`Unbanned user ${userChatId}`);
                 bot.sendMessage(chatId, `User ${userChatId} has been unbanned.`);
@@ -198,7 +211,7 @@ bot.onText(/\/(ban|unban) (\d+)/, (message, match) => {
             });
     } else {
         // Invalid command
-        bot.sendMessage(chatId, `Invalid command. Please use either /ban or /unban followed by the user chat ID.`);
+        await bot.sendMessage(chatId, `Invalid command. Please use either /ban or /unban followed by the user chat ID.`);
     }
 });
 
@@ -269,7 +282,7 @@ async function requestReport(chatId){
     bot.once('message', async (message) =>{
         const response = message.text;
         console.log(response);
-        await bot.sendMessage(adminChatId,
+        await bot.sendMessage(adminChatIds,
             `Report:${response}
                         \nUser Chat ID: ${chatId}
                         \nUsername: ${message.from.username}
@@ -291,13 +304,13 @@ async function requestMMR(chatId){
                     const photo = message.photo[0];
                     const photoId = photo.file_id;
 
-                    await bot.sendMessage(adminChatId,
+                    await bot.sendMessage(adminChatIds,
                         `MMR Request:${response}
                         \nUser Chat ID: ${chatId}
                         \nUsername: ${message.from.username}
                         \nUser ID:${message.from.id}`);
                     // Send the photo to the admin
-                    await bot.sendPhoto(adminChatId, photoId)
+                    await bot.sendPhoto(adminChatIds, photoId)
                         .then(() => bot.sendMessage(chatId, 'Photo sent to admin.'))
                         .catch(() => bot.sendMessage(chatId, 'Fail to process the photo'));
                 } else if (message.video) {
@@ -305,12 +318,12 @@ async function requestMMR(chatId){
                     const videoId = message.video.file_id;
                     console.log(videoId, message);
 
-                    await bot.sendMessage(adminChatId,
+                    await bot.sendMessage(adminChatIds,
                         `MMR Request:${response}
                         \nUser Chat ID: ${chatId}
                         \nUsername: ${message.from.username}
                         \nUser ID:${message.from.id}`);
-                    await bot.sendVideo(adminChatId, videoId)
+                    await bot.sendVideo(adminChatIds, videoId)
                         .then(() => {
                             bot.sendMessage(chatId, 'Video sent to admin');
                         })
@@ -319,7 +332,7 @@ async function requestMMR(chatId){
                         });
 
                 } else {
-                    await bot.sendMessage(adminChatId,
+                    await bot.sendMessage(adminChatIds,
                         `MMR Request:${response}
                         \nUser Chat ID: ${chatId}
                         \nUsername: ${message.from.username}
@@ -369,4 +382,14 @@ Available commands:
 `;
 
     await bot.sendMessage(chatId, message, { parse_mode: 'Markdown' });
+}
+async function checkIfAdmin(chatId){
+    adminChatIds.forEach(adminId=>{
+        console.log(adminId, chatId);
+        if (chatId === adminId){
+            return true;
+        }
+        bot.sendMessage(chatId, 'Sorry, you do not have a permission for that');
+        return false;
+    })
 }
