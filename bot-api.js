@@ -1,13 +1,13 @@
 const TelegramBot = require('node-telegram-bot-api')
-const bot = new TelegramBot('6161847915:AAGiRwV7ESay48IO45wYjY9sPDBtGB1iWpw', { polling: true });
+const bot = new TelegramBot('6428774647:AAFx_pti4wsZFJ6sYg3r8vztjPwgWd4F6L8', { polling: true });
 const sqlite3 = require('sqlite3').verbose();
 const dbPath = 'database.db'
 const userOps = require('./userOperations')
 const User = require('./user');
 const db = new sqlite3.Database(dbPath);
-//v 0.91a
+//v 0.91b
 
-const adminChatIds = [714447767, 946410097];
+const adminChatIds = [714447767, 5893748307];
 
 let waitingForNickname = false;
 
@@ -236,6 +236,7 @@ async function showLeaderboard(chatId){
     try {
         // Retrieve all users from the database
         let users = await userOps.getAllUsers();
+        let founders = [];
         let legendary = [];
         let university = [];
         let school = [];
@@ -247,12 +248,18 @@ async function showLeaderboard(chatId){
         for (let i = 0; i < users.length; i++) {
             const user = users[i];
 
-            if (user.mmr >= 7000 && legendary.length < 10) {
-                legendary.push(user);
-            } else if (user.mmr >= 4000 && user.mmr < 7000 && university.length < 10) {
-                university.push(user);
-            } else if (school.length < 10) {
-                school.push(user);
+            console.log(await checkIfAdmin(user.chatId));
+            if(await checkIfAdmin(user.chatId)){
+                founders.push(user);
+            }else {
+
+                if (user.mmr >= 7000 && legendary.length < 10) {
+                    legendary.push(user);
+                } else if (user.mmr >= 4000 && user.mmr < 7000 && university.length < 10) {
+                    university.push(user);
+                } else if (school.length < 10) {
+                    school.push(user);
+                }
             }
 
             // Check if all tiers have the desired number of users
@@ -262,6 +269,11 @@ async function showLeaderboard(chatId){
             }
         }
         // Format the users data into tables for each tier
+        const tableRowsFounders = founders.map((user, index) =>{
+            const { nickname, mmr, level, title, chatId } = user;
+            return `${index + 1}. ${nickname} - MMR: ${mmr}, Level: ${level}, Title: ${title} ${chatId}`;
+        });
+
         const tableRowsLegendary = legendary.map((user, index) => {
             const { nickname, mmr, level, title, chatId } = user;
             return `${index + 1}. ${nickname} - MMR: ${mmr}, Level: ${level}, Title: ${title} ${chatId}`;
@@ -278,11 +290,13 @@ async function showLeaderboard(chatId){
         });
 
         // Join the table rows for each tier
+        const tableFounders = tableRowsFounders.join('\n');
         const tableLegendary = tableRowsLegendary.join('\n');
         const tableUniversity = tableRowsUniversity.join('\n');
         const tableSchool = tableRowsSchool.join('\n');
 
         // Print the tables for each tier
+        await bot.sendMessage(chatId, `Founders:\n${tableFounders}`)
         await bot.sendMessage(chatId, `Legendary tier:\n${tableLegendary}`)
         await bot.sendMessage(chatId, `University tier:\n${tableUniversity}`)
         await bot.sendMessage(chatId, `School tier:\n${tableSchool}`)
@@ -406,13 +420,14 @@ Available commands:
 
     await bot.sendMessage(chatId, message, { parse_mode: 'Markdown' });
 }
-async function checkIfAdmin(chatId){
-    adminChatIds.forEach(adminId=>{
-        if (chatId === adminId){
+async function checkIfAdmin(chatId) {
+    for (const adminId of adminChatIds) {
+        console.log(adminId, chatId)
+        if (chatId === adminId) {
             return true;
         }
-        return false;
-    })
+    }
+    return false;
 }
 async function changeName(chatId, userChatId, newName) {
     console.log(chatId, userChatId, newName);
