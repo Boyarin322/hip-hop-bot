@@ -5,7 +5,7 @@ const dbPath = 'database.db'
 const userOps = require('./userOperations')
 const User = require('./user');
 const db = new sqlite3.Database(dbPath);
-//v 0.91b
+//v 0.91c
 
 const adminChatIds = [714447767, 5893748307];
 
@@ -73,6 +73,7 @@ bot.onText(/\/menu/, async (message) =>{
         reply_markup: {
             inline_keyboard: [
                 [{ text: 'Profile', callback_data: 'profile' }],
+                [{ text: 'Rules', callback_data: 'rules' }],
                 [{ text: 'Commands', callback_data: 'commands' }],
                 [{ text: 'Leaderboard', callback_data: 'leaderboard' }],
                 [{ text: 'Request MMR', callback_data: 'request-mmr' }],
@@ -90,6 +91,10 @@ bot.on('callback_query', async (callbackQuery)=>{
     switch (data){
         case 'profile':{
             await showProfile(chatId);
+            break;
+        }
+        case 'rules':{
+            await showRules(chatId);
             break;
         }
         case 'leaderboard':{
@@ -441,4 +446,12 @@ async function changeName(chatId, userChatId, newName) {
             bot.sendMessage(chatId, 'Failed to change name');
         }
     }
+}
+function showRules(chatId){
+    const message = `
+Rules of Hip Hop:
+
+No rules for now
+`;
+    bot.sendMessage(chatId, message);
 }
